@@ -1,14 +1,25 @@
-module Main exposing (record, start)
+module Main exposing (Res, errors, inFlight, latest, record, request, requestMany, requests, start)
+
+{- Features
+   * [ x ] associate errors to a separate table of acknolegements
+   * [ x ] log errors to some error reporting service
+   * [ _ ] works well with porty commands and Task.attempt
+   * [ x ] optimistic UI
+   * [ _ ] pagination
+   * [ _ ] retries
+-}
 
 
 type Ledger a e r
-    = Ledger {}
+    = Ledger
 
 
 type Res a e
     = Success a
-    | Loading
-    | Error e
+    | InitialLoad
+    | InitialError e
+    | Loading a
+    | Error e a
 
 
 
@@ -17,24 +28,42 @@ type Res a e
 -- }
 
 
-type Timestamp
-    = Timestamp
-
-
-start : r -> (r -> Cmd msg) -> ( Ledger a e r, Cmd msg )
+start : r -> (r -> Cmd (Result e a)) -> ( Ledger a e r, Cmd (Result e a) )
 start r exec =
+    startFancy r
+        (\_ a -> a)
+        (\new old -> new)
+        (\_ -> Cmd.none)
+        exec
+
+
+{-| specify error logger and optimistic data update
+-}
+startFancy :
+    r -- request to run
+    -> (r -> a -> a) -- update live data optimisically?
+    -> (a -> a -> a) -- how to merge old and new data?
+    -> (e -> Cmd (Result e a)) -- run effects on errors?
+    -> (r -> Cmd (Result e a)) -- request interpreter
+    -> ( Ledger a e r, Cmd (Result e a) )
+startFancy r exec =
     Debug.todo ""
 
 
+request : r -> Ledger a e r -> ( Ledger a e r, Cmd (Result e a) )
+request =
+    List.singleton >> requestMany
+
+
+requestMany : List r -> Ledger a e r -> ( Ledger a e r, Cmd (Result e a) )
+requestMany =
+    Debug.todo ""
+
+
+{-| overwrite old data with new data
+-}
 record : Result e a -> Ledger a e r -> Ledger a e r
 record =
-    recordWith (\new old -> new)
-
-
-{-| choose how to merge old and new data
--}
-recordWith : (a -> a -> a) -> Result e a -> Ledger a e r -> Ledger a e r
-recordWith =
     Debug.todo ""
 
 
@@ -49,9 +78,45 @@ latest =
 -}
 loading : Ledger a e r -> Bool
 loading =
+    not << List.isEmpty << inFlight
+
+
+{-| view all requests in flight
+-}
+inFlight : Ledger a e r -> List r
+inFlight =
+    let
+        chooseLoading { req, state } =
+            if state == ReqLoading then
+                Just req
+
+            else
+                Nothing
+    in
+    requests >> List.filterMap chooseLoading
+
+
+type ReqState e
+    = ReqLoading
+    | ReqError e
+
+
+requests : Ledger a e r -> List { req : r, state : ReqState e }
+requests =
     Debug.todo ""
 
 
+{-| view all errors
+-}
 errors : Ledger a e r -> List e
 errors =
-    Debug.todo ""
+    let
+        chooseError { req, state } =
+            case state of
+                ReqError e ->
+                    Just e
+
+                ReqLoading ->
+                    Nothing
+    in
+    requests >> List.filterMap chooseError
