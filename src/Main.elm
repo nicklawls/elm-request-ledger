@@ -28,23 +28,22 @@ type Res a e
 -- }
 
 
-start : r -> (r -> Cmd (Result e a)) -> ( Ledger a e r, Cmd (Result e a) )
-start r exec =
-    startFancy r
+start : (r -> Cmd (Result e a)) -> r -> ( Ledger a e r, Cmd (Result e a) )
+start =
+    startFancy
         (\_ a -> a)
         (\new old -> new)
         (\_ -> Cmd.none)
-        exec
 
 
 {-| specify error logger and optimistic data update
 -}
 startFancy :
-    r -- request to run
-    -> (r -> a -> a) -- update live data optimisically?
+    (r -> a -> a) -- update live data optimisically?
     -> (a -> a -> a) -- how to merge old and new data?
     -> (e -> Cmd (Result e a)) -- run effects on errors?
     -> (r -> Cmd (Result e a)) -- request interpreter
+    -> r -- request to run
     -> ( Ledger a e r, Cmd (Result e a) )
 startFancy r exec =
     Debug.todo ""
